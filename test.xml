@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<multilateralTournamentsConfiguration>
+    <tournaments>
+        <tournament>
+            <deadline>
+                <value>180</value>
+                <type>ROUND</type>
+                <DEFAULT_TIME_OUT>180</DEFAULT_TIME_OUT>
+            </deadline>
+            <protocolItem hasMediatorProfile="false" hasMediator="false" description="Each agents makes offer, counter-offer, or accepts" classPath="negotiator.protocol.StackedAlternatingOffersProtocol" protocolName="Stacked Alternating Offers Protocol for Multi-Lateral Negotiation (SAOPMN)"/>
+            <partyRepItems>
+                <item protocolClassPath="negotiator.protocol.StackedAlternatingOffersProtocol" description="21. Mean" classPath="agents.anac.y2015.meanBot.MeanBot" partyName="ANAC2015-21-Mean">
+                    <properties/>
+                </item>
+                <item protocolClassPath="negotiator.protocol.StackedAlternatingOffersProtocol" description="22. PNegotiator" classPath="agents.anac.y2015.pnegotiator.PNegotiator" partyName="ANAC2015-22-PNegotiator">
+                    <properties/>
+                </item>
+                <item protocolClassPath="negotiator.protocol.StackedAlternatingOffersProtocol" description="23. RandomDance" classPath="agents.anac.y2015.RandomDance.RandomDance" partyName="ANAC2015-23-RandomDance">
+                    <properties/>
+                </item>
+            </partyRepItems>
+            <partyProfileItems>
+                <item url="file:etc/templates/partydomain/party1_utility.xml"/>
+                <item url="file:etc/templates/partydomain/party2_utility.xml"/>
+                <item url="file:etc/templates/partydomain/party3_utility.xml"/>
+            </partyProfileItems>
+            <numSessions>1</numSessions>
+            <numberOfAgentsPerSession>3</numberOfAgentsPerSession>
+            <repetitionAllowed>false</repetitionAllowed>
+        </tournament>
+    </tournaments>
+</multilateralTournamentsConfiguration>
