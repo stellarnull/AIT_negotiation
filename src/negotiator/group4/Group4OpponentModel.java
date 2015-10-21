@@ -1,232 +1,139 @@
 package negotiator.group4;
 
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import negotiator.Bid;
-import negotiator.bidding.BidDetails;
-import negotiator.boaframework.NegotiationSession;
 import negotiator.boaframework.OpponentModel;
+import negotiator.Domain;
 import negotiator.issue.Issue;
 import negotiator.issue.IssueDiscrete;
-import negotiator.issue.Objective;
 import negotiator.issue.ValueDiscrete;
-import negotiator.utility.Evaluator;
-import negotiator.utility.EvaluatorDiscrete;
-import negotiator.utility.UtilitySpace;
+
 
 /**
- * Default: learning coef l = 0.2; learnValueAddition v = 1.0
- * @author stellar
+ * Opponent modeling using frequency analysis heuristic
  *
  */
-
-public class Group4OpponentModel extends OpponentModel
+public class Group4OpponentModel
 {
+    private Map<IssueDiscrete, Map<ValueDiscrete, Integer>> issueValueCount;
+    private Map<IssueDiscrete, Double> weights;
+    
+    // Number of bids entered into the model.
+    // This value is for convenience since the sum of the counts for each
+    // issue is equivalent to this
+    private int numberOfBids;
 
-	// the learning coefficient is the weight that is added each turn to the issue weights
-	// which changed. It's a trade-off between concession speed and accuracy.
-	private double learnCoef;
-	// value which is added to a value if it is found. Determines how fast the value weights converge.
-	private int learnValueAddition;
-	private int amountOfIssues;
+    public Group4OpponentModel(Domain domain) {
+        issueValueCount = new HashMap<>();
+        weights = new HashMap<>();
+        
+        numberOfBids = 0;
+        
+        for (Issue issue : domain.getIssues()) 
+        {
+        	
+            IssueDiscrete issueDiscrete = (IssueDiscrete) issue;
+            issueValueCount.put(issueDiscrete, new HashMap<>());
+            
+            //let each value be 1 at first
+            for (ValueDiscrete value : issueDiscrete.getValues()) 
+            {
+                issueValueCount.get(issueDiscrete).put(value, 1);
+            }
+            
+            //initiate the weights
+            weights.put(issueDiscrete, 1.0 / domain.getIssues().size());
+        }
+    }
 
-	/**
-	 * Initializes the utility space of the opponent such that all value issue
-	 * weights are equal.
-	 */
-	@Override
-	public void init(NegotiationSession negotiationSession,HashMap<String, Double> parameters) throws Exception 
-	{
-		this.negotiationSession = negotiationSession;
-		if (parameters != null && parameters.get("l") != null) 
-		{
-			learnCoef = parameters.get("l");
-		} 
-		else 
-		{
-			learnCoef = 0.2;
-		}
-		learnValueAddition = 1;
-		initializeModel();
-	}
+    /**
+     * Evaluates the predicted utility of a given bid, using the information
+     * provided thus far.
+     * 
+     * @param bid
+     *            the bid to be evaluated
+     * @return a value from 0.0 to 1.0 giving the predicted utility of the bid
+     */
+    public double evaluateBid(Bid bid) {
+        double utility = 0.0;
+        
+        //add 1 to number of bids
+        numberOfBids++;
+        
+        //update the weights
+        weights = computeWeights();
+        
+        try {
+            for (Issue issueRaw : bid.getIssues()) 
+            {
+            	
+                ValueDiscrete value = (ValueDiscrete) bid.getValue(issueRaw.getNumber());
+                IssueDiscrete issue = (IssueDiscrete) issueRaw;
 
-	private void initializeModel() 
-	{
-		opponentUtilitySpace = new UtilitySpace(negotiationSession.getUtilitySpace());
-		amountOfIssues = opponentUtilitySpace.getDomain().getIssues().size();
-		double commonWeight = 1D / (double) amountOfIssues;
+                double issueWeight = weights.get(issue);
+                double issueValue = ((double) issueValueCount.get(issue).get(value));
 
-		// initialize the weights
-		for (Entry<Objective, Evaluator> e : opponentUtilitySpace.getEvaluators()) 
-		{
-			// set the issue weights
-			opponentUtilitySpace.unlock(e.getKey());
-			e.getValue().setWeight(commonWeight);
-			try 
-			{
-				// set all value weights to one (they are normalized when
-				// calculating the utility)
-				for (ValueDiscrete vd : ((IssueDiscrete) e.getKey()).getValues())
-				{
-					((EvaluatorDiscrete) e.getValue()).setEvaluation(vd, 1);
-				}
-			} 
-			catch (Exception ex) 
-			{
-				ex.printStackTrace();
-			}
-		}
-	}
+                //update the value
+                issueValueCount.get(issue).put(value, (int) ((issueValue + 1)/numberOfBids));
+                
+                //compute the utility
+                utility += issueWeight * issueValue;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-	/**
-	 * Determines the difference between bids. For each issue, it is determined
-	 * if the value changed. If this is the case, a 1 is stored in a hashmap for
-	 * that issue, else a 0.
-	 * 
-	 * @param a
-	 *            bid of the opponent
-	 * @param another
-	 *            bid
-	 * @return
-	 */
-	private HashMap<Integer, Integer> determineDifference(BidDetails first,BidDetails second) 
-	{
-		HashMap<Integer, Integer> diff = new HashMap<Integer, Integer>();
-		try 
-		{
-			for (Issue i : opponentUtilitySpace.getDomain().getIssues()) 
-			{
-				diff.put(i.getNumber(), (((ValueDiscrete) first.getBid()
-						.getValue(i.getNumber())).equals((ValueDiscrete) second
-						.getBid().getValue(i.getNumber()))) ? 0 : 1);
-			}
-		} 
-		catch (Exception ex) 
-		{
-			ex.printStackTrace();
-		}
+        return utility;
+    }
+    
+    /**
+     * Given the current data about the opponent, return the predicted weight
+     * for each issue. If the opponent suggests many different values for that 
+     * issue, we assume that it is unimportant for it.
+     * 
+     * @return a map of issues to their respective weights, normalized such that
+     *         the sum of the weights is 1.0
+     */
+    private Map<IssueDiscrete, Double> computeWeights() 
+    {
+        Map<IssueDiscrete, Double> weights = new HashMap<>();
 
-		return diff;
-	}
+        for (IssueDiscrete issue : issueValueCount.keySet()) 
+        {
+        	double variance = computeVariance(issue);
+            weights.put(issue, 1.0/variance);
+        }
 
-	/**
-	 * Updates the opponent model given a bid.
-	 */
-	@Override
-	public void updateModel(Bid opponentBid, double time) 
-	{
-		if (negotiationSession.getOpponentBidHistory().size() < 2) 
-		{
-			return;
-		}
-		int numberOfUnchanged = 0;
-		BidDetails oppBid = negotiationSession.getOpponentBidHistory()
-				.getHistory()
-				.get(negotiationSession.getOpponentBidHistory().size() - 1);
-		BidDetails prevOppBid = negotiationSession.getOpponentBidHistory()
-				.getHistory()
-				.get(negotiationSession.getOpponentBidHistory().size() - 2);
-		HashMap<Integer, Integer> lastDiffSet = determineDifference(prevOppBid,
-				oppBid);
+        // Normalize weights: make them sum to 1.0
+        double sum = weights.values().stream().reduce(0.0, Double::sum);
+        weights.forEach((k, v) -> weights.put(k, v / sum));
 
-		// count the number of changes in value
-		for (Integer i : lastDiffSet.keySet()) 
-		{
-			if (lastDiffSet.get(i) == 0)
-				numberOfUnchanged++;
-		}
+        return weights;
+    }
 
-		// This is the value to be added to weights of unchanged issues before normalization.
-		// Also the value that is taken as the minimum possible weight, (therefore defining the maximum possible also).
-		double goldenValue = learnCoef / (double) amountOfIssues;
-		
-		// The total sum of weights before normalization.
-		double totalSum = 1D + goldenValue * (double) numberOfUnchanged;
-		
-		// The maximum possible weight
-		double maximumWeight = 1D - ((double) amountOfIssues) * goldenValue / totalSum;
+   
+    private double computeVariance(IssueDiscrete issue)
+    {
+    
+        List<Integer> counts = new ArrayList<>(issueValueCount.get(issue).values());
+        int max = counts.stream().max(Integer::compare).get();
+        List<Double> weightedCounts = counts.stream()
+                .mapToDouble(i -> (((double) i) / max)).boxed()
+                .collect(Collectors.toList());
 
-		// Normalization, making sure that the sum remains 1
-		for (Integer i : lastDiffSet.keySet()) 
-		{
-			if (lastDiffSet.get(i) == 0 && opponentUtilitySpace.getWeight(i) < maximumWeight)
-			{
-				opponentUtilitySpace.setWeight(opponentUtilitySpace.getDomain()
-						.getObjective(i),
-						(opponentUtilitySpace.getWeight(i) + goldenValue) / totalSum);
-			}
-			else
-			{
-				opponentUtilitySpace.setWeight(opponentUtilitySpace.getDomain()
-						.getObjective(i), opponentUtilitySpace.getWeight(i) / totalSum);
-			}
-		}
-
-		// Then for each issue value that has been offered last time, a constant
-		// value is added to its corresponding ValueDiscrete.
-		try 
-		{
-			for (Entry<Objective, Evaluator> e : opponentUtilitySpace.getEvaluators()) 
-			{
-				// cast issue to discrete and retrieve value. Next, add constant
-				// learnValueAddition to the current preference of the value to
-				// make it more important
-				
-				/* 
-				 * 
-				 * pseudo code:
-				 * 
-				 * Integer[][] valueMap = new Ingeter[amountOfIssues][valueOfAIssue];
-				 * for (Issue i : opponentUtilitySpace.getDomain().getIssues())
-				 * {
-				 * 		for (int j = 0; negotiationSession.getOpponentBidHistory().size(); j++)
-				 * 		{
-				 * 			BidDetaiils b = negotiationSession.getOpponentBidHistory().getHistory().get(j);
-				 * 			currentBidValue = (ValueDiscrete) b.getBid().getValue(i.getNumber()));
-				 * 			valueMap[i][j] = currentBidValue;
-				 * 		}
-				 * 		//count the number of each value
-				 * 
-				 * 		double newValue = valueCount / maxValueCount;
-				 * 
-				 *		 ((EvaluatorDiscrete) e.getValue()).setEvaluation(oppBid.getBid()
-				 * 		.getValue(((IssueDiscrete) e.getKey()).getNumber()), newValue)
-				 * }
-				 * 
-				 * 
-				 * 
-				 */
-				
-				((EvaluatorDiscrete) e.getValue())
-						.setEvaluation(
-								oppBid.getBid().getValue(((IssueDiscrete) e.getKey()).getNumber()),
-								(learnValueAddition + 
-										((EvaluatorDiscrete) e.getValue())
-										.getEvaluationNotNormalized(((ValueDiscrete) oppBid
-												.getBid().getValue(((IssueDiscrete) e.getKey()).getNumber())))));
-				
-				
-			}
-		} 
-		catch (Exception ex) 
-		{
-			ex.printStackTrace();
-		}
-	}
-
-	@Override
-	public double getBidEvaluation(Bid bid) 
-	{
-		double result = 0;
-		try 
-		{
-			result = opponentUtilitySpace.getUtility(bid);
-		} 
-		catch (Exception e) 
-		{
-			e.printStackTrace();
-		}
-		return result;
-	}
+        double avg = weightedCounts.stream().reduce(0.0, Double::sum)
+                / weightedCounts.size();
+        double variance = weightedCounts.stream()
+                .mapToDouble(d -> (d - avg) * (d - avg)).sum()
+                / weightedCounts.size();
+        return variance;
+    }
+	
 }
