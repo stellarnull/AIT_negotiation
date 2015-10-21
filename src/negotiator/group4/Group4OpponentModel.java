@@ -173,8 +173,31 @@ public class Group4OpponentModel extends OpponentModel
 				// learnValueAddition to the current preference of the value to
 				// make it more important
 				
-				// pseudo code:
-				// getValue.setValue(getValue, constant + gatValue)
+				/* 
+				 * 
+				 * pseudo code:
+				 * 
+				 * Integer[][] valueMap = new Ingeter[amountOfIssues][valueOfAIssue];
+				 * for (Issue i : opponentUtilitySpace.getDomain().getIssues())
+				 * {
+				 * 		for (int j = 0; negotiationSession.getOpponentBidHistory().size(); j++)
+				 * 		{
+				 * 			BidDetaiils b = negotiationSession.getOpponentBidHistory().getHistory().get(j);
+				 * 			currentBidValue = (ValueDiscrete) b.getBid().getValue(i.getNumber()));
+				 * 			valueMap[i][j] = currentBidValue;
+				 * 		}
+				 * 		//count the number of each value
+				 * 
+				 * 		double newValue = valueCount / maxValueCount;
+				 * 
+				 *		 ((EvaluatorDiscrete) e.getValue()).setEvaluation(oppBid.getBid()
+				 * 		.getValue(((IssueDiscrete) e.getKey()).getNumber()), newValue)
+				 * }
+				 * 
+				 * 
+				 * 
+				 */
+				
 				((EvaluatorDiscrete) e.getValue())
 						.setEvaluation(
 								oppBid.getBid().getValue(((IssueDiscrete) e.getKey()).getNumber()),
@@ -182,6 +205,8 @@ public class Group4OpponentModel extends OpponentModel
 										((EvaluatorDiscrete) e.getValue())
 										.getEvaluationNotNormalized(((ValueDiscrete) oppBid
 												.getBid().getValue(((IssueDiscrete) e.getKey()).getNumber())))));
+				
+				
 			}
 		} 
 		catch (Exception ex) 
