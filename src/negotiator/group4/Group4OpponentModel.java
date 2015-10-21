@@ -24,12 +24,10 @@ import negotiator.utility.UtilitySpace;
 public class Group4OpponentModel extends OpponentModel
 {
 
-	// the learning coefficient is the weight that is added each turn to the
-	// issue weights
+	// the learning coefficient is the weight that is added each turn to the issue weights
 	// which changed. It's a trade-off between concession speed and accuracy.
 	private double learnCoef;
-	// value which is added to a value if it is found. Determines how fast
-	// the value weights converge.
+	// value which is added to a value if it is found. Determines how fast the value weights converge.
 	private int learnValueAddition;
 	private int amountOfIssues;
 
@@ -139,10 +137,8 @@ public class Group4OpponentModel extends OpponentModel
 				numberOfUnchanged++;
 		}
 
-		// This is the value to be added to weights of unchanged issues before
-		// normalization.
-		// Also the value that is taken as the minimum possible weight,
-		// (therefore defining the maximum possible also).
+		// This is the value to be added to weights of unchanged issues before normalization.
+		// Also the value that is taken as the minimum possible weight, (therefore defining the maximum possible also).
 		double goldenValue = learnCoef / (double) amountOfIssues;
 		
 		// The total sum of weights before normalization.
@@ -151,7 +147,7 @@ public class Group4OpponentModel extends OpponentModel
 		// The maximum possible weight
 		double maximumWeight = 1D - ((double) amountOfIssues) * goldenValue / totalSum;
 
-		// re-weighing issues while making sure that the sum remains 1
+		// Normalization, making sure that the sum remains 1
 		for (Integer i : lastDiffSet.keySet()) 
 		{
 			if (lastDiffSet.get(i) == 0 && opponentUtilitySpace.getWeight(i) < maximumWeight)
@@ -175,20 +171,17 @@ public class Group4OpponentModel extends OpponentModel
 			{
 				// cast issue to discrete and retrieve value. Next, add constant
 				// learnValueAddition to the current preference of the value to
-				// make
-				// it more important
+				// make it more important
+				
+				// pseudo code:
+				// getValue.setValue(getValue, constant + gatValue)
 				((EvaluatorDiscrete) e.getValue())
 						.setEvaluation(
-								oppBid.getBid().getValue(
-										((IssueDiscrete) e.getKey())
-												.getNumber()),
-								(learnValueAddition + ((EvaluatorDiscrete) e
-										.getValue())
+								oppBid.getBid().getValue(((IssueDiscrete) e.getKey()).getNumber()),
+								(learnValueAddition + 
+										((EvaluatorDiscrete) e.getValue())
 										.getEvaluationNotNormalized(((ValueDiscrete) oppBid
-												.getBid().getValue(
-														((IssueDiscrete) e
-																.getKey())
-																.getNumber())))));
+												.getBid().getValue(((IssueDiscrete) e.getKey()).getNumber())))));
 			}
 		} 
 		catch (Exception ex) 
@@ -211,10 +204,4 @@ public class Group4OpponentModel extends OpponentModel
 		}
 		return result;
 	}
-
-/*
-	public double getOpponentUtility(){
-		return 0;
-	}
-*/
 }
