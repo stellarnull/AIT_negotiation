@@ -5,11 +5,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import negotiator.Bid;
-import negotiator.boaframework.OpponentModel;
 import negotiator.Domain;
 import negotiator.issue.Issue;
 import negotiator.issue.IssueDiscrete;
@@ -24,17 +22,10 @@ public class Group4OpponentModel
 {
     private Map<IssueDiscrete, Map<ValueDiscrete, Integer>> issueValueCount;
     private Map<IssueDiscrete, Double> weights;
-    
-    // Number of bids entered into the model.
-    // This value is for convenience since the sum of the counts for each
-    // issue is equivalent to this
-    private int numberOfBids;
 
     public Group4OpponentModel(Domain domain) {
         issueValueCount = new HashMap<>();
         weights = new HashMap<>();
-        
-        numberOfBids = 0;
         
         for (Issue issue : domain.getIssues()) 
         {
@@ -64,24 +55,34 @@ public class Group4OpponentModel
     public double evaluateBid(Bid bid) {
         double utility = 0.0;
         
-        //add 1 to number of bids
-        numberOfBids++;
-        
         //update the weights
         weights = computeWeights();
         
         try {
             for (Issue issueRaw : bid.getIssues()) 
             {
-            	
+            	double maxValue = 0;
                 ValueDiscrete value = (ValueDiscrete) bid.getValue(issueRaw.getNumber());
                 IssueDiscrete issue = (IssueDiscrete) issueRaw;
 
                 double issueWeight = weights.get(issue);
                 double issueValue = ((double) issueValueCount.get(issue).get(value));
 
-                //update the value
-                issueValueCount.get(issue).put(value, (int) ((issueValue + 1)/numberOfBids));
+                //add 1 to the current value
+                issueValueCount.get(issue).put(value, (int) ((issueValue + 1)));
+             
+                //update and normalize the value to make the max of the value equals 1
+                for (ValueDiscrete eachValue : issue.getValues()) 
+                {
+                	double tempValue = ((double) issueValueCount.get(issue).get(eachValue));
+                    if (tempValue > maxValue)
+                    	maxValue = tempValue;
+                }
+                
+                //update and normalize the value to make the max of the value equals 1
+                //to keep track of the history, only the value that is going to be computed
+                //in the utility is normalized
+                issueValue /= maxValue;
                 
                 //compute the utility
                 utility += issueWeight * issueValue;
